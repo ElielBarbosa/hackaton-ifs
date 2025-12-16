@@ -15,23 +15,34 @@ model avaliacao {
   nota           Int
   descricao      String?
   data_avaliacao DateTime? @default(now()) @db.Timestamptz(6)
-  cliente        cliente   @relation(fields: [cliente_id], references: [cliente_id], onDelete: NoAction, onUpdate: NoAction)
-  expositor      expositor @relation(fields: [expositor_id], references: [expositor_id], onDelete: NoAction, onUpdate: NoAction)
+  cliente        cliente   @relation(fields: [cliente_id], references: [cliente_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_avaliacao_cliente")
+  expositor      expositor @relation(fields: [expositor_id], references: [expositor_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_avaliacao_expositor")
+}
+
+model carrinho {
+  carrinho_id   Int             @id @default(autoincrement())
+  cliente_id    Int             @unique(map: "unq_cliente_carrinho")
+  data_criacao  DateTime?       @default(now()) @db.Timestamptz(6)
+  cliente       cliente         @relation(fields: [cliente_id], references: [cliente_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_carrinho_cliente")
+  item_carrinho item_carrinho[]
 }
 
 model cliente {
   cliente_id Int         @id @default(autoincrement())
   nome       String      @db.VarChar(100)
-  email      String?     @unique @db.VarChar(100)
+  email      String      @unique @db.VarChar(100)
   telefone   String?     @db.VarChar(20)
   senha      String      @db.VarChar(255)
   avaliacao  avaliacao[]
+  carrinho   carrinho?
   pedido     pedido[]
 }
 
 model expositor {
   expositor_id    Int         @id @default(autoincrement())
   nome            String      @db.VarChar(100)
+  email           String      @unique @db.VarChar(100)
+  senha           String      @db.VarChar(255)
   turma_curso     String?     @db.VarChar(50)
   contato         String?     @db.VarChar(100)
   descricao_venda String?
@@ -43,6 +54,18 @@ model expositor {
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model item_carrinho {
+  item_carrinho_id Int      @id @default(autoincrement())
+  carrinho_id      Int
+  produto_id       Int?
+  servico_id       Int?
+  quantidade       Int?     @default(1)
+  carrinho         carrinho @relation(fields: [carrinho_id], references: [carrinho_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_item_carrinho_pai")
+  produto          produto? @relation(fields: [produto_id], references: [produto_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_item_carrinho_produto")
+  servico          servico? @relation(fields: [servico_id], references: [servico_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_item_carrinho_servico")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model item_pedido {
   item_pedido_id         Int      @id @default(autoincrement())
   pedido_id              Int
@@ -51,44 +74,46 @@ model item_pedido {
   nome_item              String   @db.VarChar(100)
   quantidade             Int
   preco_unitario_vendido Decimal  @db.Decimal(10, 2)
-  pedido                 pedido   @relation(fields: [pedido_id], references: [pedido_id], onDelete: NoAction, onUpdate: NoAction)
-  produto                produto? @relation(fields: [produto_id], references: [produto_id], onDelete: NoAction, onUpdate: NoAction)
-  servico                servico? @relation(fields: [servico_id], references: [servico_id], onDelete: NoAction, onUpdate: NoAction)
+  pedido                 pedido   @relation(fields: [pedido_id], references: [pedido_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_item_pedido_pai")
+  produto                produto? @relation(fields: [produto_id], references: [produto_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_item_pedido_produto")
+  servico                servico? @relation(fields: [servico_id], references: [servico_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_item_pedido_servico")
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model pedido {
   pedido_id    Int           @id @default(autoincrement())
   expositor_id Int
-  cliente_id   Int?
+  cliente_id   Int
   data_hora    DateTime?     @default(now()) @db.Timestamptz(6)
   status       String        @default("novo") @db.VarChar(50)
   valor_total  Decimal       @db.Decimal(10, 2)
   item_pedido  item_pedido[]
-  cliente      cliente?      @relation(fields: [cliente_id], references: [cliente_id], onDelete: NoAction, onUpdate: NoAction)
-  expositor    expositor     @relation(fields: [expositor_id], references: [expositor_id], onDelete: NoAction, onUpdate: NoAction)
+  cliente      cliente       @relation(fields: [cliente_id], references: [cliente_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_pedido_cliente")
+  expositor    expositor     @relation(fields: [expositor_id], references: [expositor_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_pedido_expositor")
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model produto {
-  produto_id   Int           @id @default(autoincrement())
-  expositor_id Int
-  nome         String        @db.VarChar(100)
-  descricao    String?
-  preco        Decimal       @db.Decimal(10, 2)
-  estoque      Int
-  item_pedido  item_pedido[]
-  expositor    expositor     @relation(fields: [expositor_id], references: [expositor_id], onDelete: NoAction, onUpdate: NoAction)
+  produto_id    Int             @id @default(autoincrement())
+  expositor_id  Int
+  nome          String          @db.VarChar(100)
+  descricao     String?
+  preco         Decimal         @db.Decimal(10, 2)
+  estoque       Int
+  item_carrinho item_carrinho[]
+  item_pedido   item_pedido[]
+  expositor     expositor       @relation(fields: [expositor_id], references: [expositor_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_produto_expositor")
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model servico {
-  servico_id   Int           @id @default(autoincrement())
-  expositor_id Int
-  nome         String        @db.VarChar(100)
-  descricao    String?
-  preco        Decimal       @db.Decimal(10, 2)
-  disponivel   Boolean       @default(true)
-  item_pedido  item_pedido[]
-  expositor    expositor     @relation(fields: [expositor_id], references: [expositor_id], onDelete: NoAction, onUpdate: NoAction)
+  servico_id    Int             @id @default(autoincrement())
+  expositor_id  Int
+  nome          String          @db.VarChar(100)
+  descricao     String?
+  preco         Decimal         @db.Decimal(10, 2)
+  disponivel    Boolean         @default(true)
+  item_carrinho item_carrinho[]
+  item_pedido   item_pedido[]
+  expositor     expositor       @relation(fields: [expositor_id], references: [expositor_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_servico_expositor")
 }
